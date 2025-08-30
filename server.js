@@ -23,7 +23,7 @@ function tokenize(text) {
     .filter(Boolean);
 }
 
-// ---------- Naive Bayes trainer ----------
+// ---------- Naive Bayes trainer (UNCHANGED) ----------
 class NaiveBayes {
   constructor(labels) {
     this.labels = labels;
@@ -94,7 +94,7 @@ function loadTrainingData() {
 }
 loadTrainingData();
 
-// ---------- Lexicon approach (very simple) ----------
+// ---------- Lexicon approach (UNCHANGED) ----------
 const POS_WORDS = new Set([
   "love","awesome","great","good","wonderful","happy","delightful","smile","best","fresh","friendly","helpful",
   "proud", "joy","fantastic","exciting","excellent","amazing","like","fun","cool","nice","wow","brilliant","super"
@@ -118,12 +118,65 @@ function lexiconScore(text) {
   return { label, score, details, tokens };
 }
 
+// ---------- NEW: Signals approach (kid-friendly; EASY) ----------
+/*  ✅ ADDED
+    Looks at obvious clues kids already know:
+    - emojis 😊 ☹️ 👍 👎
+    - exclamation counts
+    - booster words (very/really/so/super/extremely)
+    - softeners (slightly/kinda/somewhat/bit/little)
+    - gives extra weight to the clause AFTER “but”
+*/
+const POS_EMOJIS = /(\:\)|:D|😊|🙂|😁|😄|😍|🥳|👍|❤️)/g;
+const NEG_EMOJIS = /(\:\(|☹️|🙁|😞|😠|😢|😭|👎|💔)/g;
+const BOOSTERS = new Set(["very","really","so","super","extremely"]);
+const SOFTENERS = new Set(["slightly","kinda","somewhat","abit","bit","little"]);
+
+function basicSignals(text) {
+  const tokens = tokenize(text);
+  let score = 0;
+  let details = [];
+
+  const posEmo = (text.match(POS_EMOJIS) || []).length;
+  const negEmo = (text.match(NEG_EMOJIS) || []).length;
+  if (posEmo) { score += posEmo; details.push({ t:"emoji+", effect:+posEmo }); }
+  if (negEmo) { score -= negEmo; details.push({ t:"emoji-", effect:-negEmo }); }
+
+  const exclam = Math.min((text.match(/!/g) || []).length, 3);
+  if (exclam) { score += exclam * 0.5; details.push({ t:"!", effect:+exclam*0.5 }); }
+
+  for (const t of tokens) {
+    if (BOOSTERS.has(t)) { score += 0.5; details.push({ t, effect:+0.5 }); }
+    if (SOFTENERS.has(t)) { score -= 0.25; details.push({ t, effect:-0.25 }); }
+  }
+  return { score, details };
+}
+
+function signalsScore(text) {
+  const raw = text || "";
+  let { score, details } = basicSignals(raw);
+
+  // Emphasize clause after "but"
+  const parts = raw.split(/\bbut\b/i);
+  if (parts.length > 1) {
+    const after = basicSignals(parts.slice(1).join(" but "));
+    score = score*0.5 + after.score*1.5;
+    details = [...details, { t:"(but→)", effect:"emphasis" }, ...after.details];
+  }
+
+  let label = "neutral";
+  if (score > 0.75) label = "positive";
+  else if (score < -0.75) label = "negative";
+
+  return { label, score: Number(score.toFixed(2)), details, tokens: tokenize(raw) };
+}
+
 // ---------- Routes ----------
 app.get("/api/health", (req,res)=>{
   res.json({ ok: true, time: new Date().toISOString() });
 });
 
-app.post("/api/predict", async (req,res)=>{
+app.post("/api/predict", async (req,res)=>{   // NB route (kept for compatibility)
   const { text } = req.body || {};
   if (!text || !text.trim()) return res.status(400).json({ error: "text required"});
   const out = nb.predict(text);
@@ -137,12 +190,20 @@ app.post("/api/lexicon", (req,res)=>{
   res.json(out);
 });
 
+// ✅ NEW: Signals route so frontend won't 404
+app.post("/api/signals", (req,res)=>{
+  const { text } = req.body || {};
+  if (!text || !text.trim()) return res.status(400).json({ error: "text required"});
+  const out = signalsScore(text);
+  res.json(out);
+});
+
 app.post("/api/examples", async (req,res)=>{
   try {
     const { text, label } = req.body || {};
     if (!text || !label) return res.status(400).json({ error: "text and label required"});
     const doc = await Example.create({ text, label });
-    // Also feed into NB model immediately (online learning)
+    // NB: keep online learning for NB demo (front-end no longer calls it, but OK)
     nb.addExample(text, label);
     res.json({ ok: true, id: doc._id });
   } catch (e) {
@@ -171,6 +232,13 @@ app.post("/api/score", async (req,res)=>{
 app.get("/api/scores", async (req,res)=>{
   const top = await Score.find().sort({ createdAt: -1 }).limit(10);
   res.json(top);
+});
+
+// ✅ Return JSON for unknown routes (prevents “unknown” in UI)
+app.use((req, res) => res.status(404).json({ error: "Not found", path: req.path }));
+app.use((err, req, res, next) => {
+  console.error("Unhandled error:", err);
+  res.status(500).json({ error: "Server error" });
 });
 
 const PORT = process.env.PORT || 5000;
