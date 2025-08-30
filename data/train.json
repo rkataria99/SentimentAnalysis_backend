@@ -1,0 +1,118 @@
+[
+  {
+    "text": "I love this movie, it was awesome and exciting!",
+    "label": "positive"
+  },
+  {
+    "text": "This is the best day ever",
+    "label": "positive"
+  },
+  {
+    "text": "You did a great job, well done!",
+    "label": "positive"
+  },
+  {
+    "text": "The cake tastes wonderful",
+    "label": "positive"
+  },
+  {
+    "text": "I am so happy today",
+    "label": "positive"
+  },
+  {
+    "text": "What a delightful surprise",
+    "label": "positive"
+  },
+  {
+    "text": "This makes me smile",
+    "label": "positive"
+  },
+  {
+    "text": "I hate this, it is terrible",
+    "label": "negative"
+  },
+  {
+    "text": "This is the worst game",
+    "label": "negative"
+  },
+  {
+    "text": "I am sad and disappointed",
+    "label": "negative"
+  },
+  {
+    "text": "That was a bad idea",
+    "label": "negative"
+  },
+  {
+    "text": "This tastes awful",
+    "label": "negative"
+  },
+  {
+    "text": "I feel angry about it",
+    "label": "negative"
+  },
+  {
+    "text": "Meh, it is okay",
+    "label": "neutral"
+  },
+  {
+    "text": "I have no strong feelings",
+    "label": "neutral"
+  },
+  {
+    "text": "The weather is average",
+    "label": "neutral"
+  },
+  {
+    "text": "It is fine, nothing special",
+    "label": "neutral"
+  },
+  {
+    "text": "We went to the park",
+    "label": "neutral"
+  },
+  {
+    "text": "The book is on the table",
+    "label": "neutral"
+  },
+  {
+    "text": "The pizza was delicious and fresh",
+    "label": "positive"
+  },
+  {
+    "text": "The service was friendly and helpful",
+    "label": "positive"
+  },
+  {
+    "text": "I am proud of your effort",
+    "label": "positive"
+  },
+  {
+    "text": "I feel fantastic about my score",
+    "label": "positive"
+  },
+  {
+    "text": "The match was boring and long",
+    "label": "negative"
+  },
+  {
+    "text": "The phone battery is horrible",
+    "label": "negative"
+  },
+  {
+    "text": "I feel sick and tired",
+    "label": "negative"
+  },
+  {
+    "text": "It could be better",
+    "label": "neutral"
+  },
+  {
+    "text": "I think it is fine",
+    "label": "neutral"
+  },
+  {
+    "text": "Today is Wednesday",
+    "label": "neutral"
+  }
+]
