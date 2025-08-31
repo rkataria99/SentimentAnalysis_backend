@@ -11,18 +11,23 @@ dotenv.config();
 const app = express();
 app.use(express.json());
 
+const normalize = (u) => (u ? u.replace(/\/$/, "") : u); // for no trailing slash mismatch
+
 const ALLOW = (process.env.ORIGIN || "http://localhost:5173")
   .split(",")
-  .map(s => s.trim());
+  .map((s) => normalize(s.trim()));
 
-app.use(cors({
-  origin: (origin, cb) => {
-    if (!origin) return cb(null, true);              // e.g., curl/postman
-    const ok = ALLOW.some(a => a === origin);
-    cb(ok ? null : new Error("Not allowed by CORS"));
-  },
-  credentials: true,
-}));
+app.use(
+  cors({
+    origin: (origin, cb) => {
+      if (!origin) return cb(null, true); // curl/postman or same-origin
+      const ok = ALLOW.includes(normalize(origin));
+      cb(ok ? null : new Error("Not allowed by CORS"));
+    },
+    credentials: true,
+  })
+);
+
 
 /*const ORIGIN = process.env.ORIGIN || "http://localhost:5173";
 app.use(cors({ origin: ORIGIN, credentials: true }));*/
