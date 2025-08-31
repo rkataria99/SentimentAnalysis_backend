@@ -11,8 +11,21 @@ dotenv.config();
 const app = express();
 app.use(express.json());
 
-const ORIGIN = process.env.ORIGIN || "http://localhost:5173";
-app.use(cors({ origin: ORIGIN, credentials: true }));
+const ALLOW = (process.env.ORIGIN || "http://localhost:5173")
+  .split(",")
+  .map(s => s.trim());
+
+app.use(cors({
+  origin: (origin, cb) => {
+    if (!origin) return cb(null, true);              // e.g., curl/postman
+    const ok = ALLOW.some(a => a === origin);
+    cb(ok ? null : new Error("Not allowed by CORS"));
+  },
+  credentials: true,
+}));
+
+/*const ORIGIN = process.env.ORIGIN || "http://localhost:5173";
+app.use(cors({ origin: ORIGIN, credentials: true }));*/
 
 // Simple tokenizer
 function tokenize(text) {
@@ -123,10 +136,8 @@ app.post("/api/examples", async (req,res)=>{
     const { text, label } = req.body || {};
     if (!text || !label) return res.status(400).json({ error: "text and label required"});
     const doc = await Example.create({ text, label });
-    // NB: keep online learning for NB demo (front-end no longer calls it, but OK)
-    nb.addExample(text, label);
     res.json({ ok: true, id: doc._id });
-  } catch (e) {
+  } catch {
     res.status(500).json({ error: "could not save example" });
   }
 });
