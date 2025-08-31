@@ -219,10 +219,28 @@ app.get("/api/examples", async (req,res)=>{
 app.post("/api/score", async (req,res)=>{
   try {
     const { name, score, total } = req.body || {};
-    if (typeof score!=="number" || typeof total!=="number") {
+    // Require a non-empty name
+    if (!name || !name.trim()) {
+      return res.status(400).json({ error: "name is required" });
+    }
+    if (typeof score !== "number" || typeof total !== "number") {
       return res.status(400).json({ error: "score and total numbers required" });
     }
-    const doc = await Score.create({ name: name || "Anonymous", score, total });
+
+    // Duplicate guard: if same name+score+total was saved in last 2 minutes, reject
+    const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000);
+    const dup = await Score.findOne({
+      name: name.trim(),
+      score,
+      total,
+      createdAt: { $gte: twoMinutesAgo }
+    }).lean();
+
+    if (dup) {
+      return res.status(409).json({ error: "Duplicate submission detected. Please wait a moment." });
+    }
+
+    const doc = await Score.create({ name: name.trim(), score, total });
     res.json({ ok: true, id: doc._id });
   } catch (e) {
     res.status(500).json({ error: "could not save score" });
