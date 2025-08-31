@@ -1,6 +1,6 @@
 import express from "express";
 import dotenv from "dotenv";
-import cors from "cors";
+//import cors from "cors";
 import { connectDB } from "./db.js";
 import { Score } from "./models/Score.js";
 import { Example } from "./models/Example.js";
@@ -12,38 +12,40 @@ const app = express();
 app.use(express.json());
 
 // CORS
+// allow exactly the two origins mentioned
 const normalize = (u) => (u ? u.replace(/\/$/, "") : u);
-
-// Exact allowed origins (comma-separated in ORIGIN)
-const ALLOW = (process.env.ORIGIN || "http://localhost:5173")
+const ALLOWED = (process.env.ORIGIN ||
+  "https://sentiment-analysis-frontend-one.vercel.app,http://localhost:5173")
   .split(",")
   .map((s) => normalize(s.trim()))
   .filter(Boolean);
 
-// Regex patterns (comma-separated in ORIGIN_PATTERNS)
-const ORIGIN_PATTERNS = (process.env.ORIGIN_PATTERNS || "")
-  .split(",")
-  .map((s) => s.trim())
-  .filter(Boolean)
-  .map((pat) => new RegExp(pat));
+app.use((req, res, next) => {
+  const origin = normalize(req.headers.origin);
 
-const corsOptions = {
-  origin: (origin, cb) => {
-    if (!origin) return cb(null, true); 
-    const o = normalize(origin);
-    const ok =
-      ALLOW.includes(o) ||
-      ORIGIN_PATTERNS.some((rx) => rx.test(o));
-    cb(ok ? null : new Error("Not allowed by CORS"));
-  },
-  credentials: true,
-};
+  if (!origin || ALLOWED.includes(origin)) {
+    // send Access-Control-Allow-Origin only for allowed origins 
+    if (origin) res.setHeader("Access-Control-Allow-Origin", origin);
+  }
 
-app.use(cors(corsOptions));
-// Explicitly handle preflight for all routes - error handling
-app.options("*", cors(corsOptions));
+  // make caches/proxies vary by Origin
+  res.setHeader("Vary", "Origin");
 
+  // preflight allowances
+  res.setHeader(
+    "Access-Control-Allow-Methods",
+    "GET,POST,PUT,PATCH,DELETE,OPTIONS"
+  );
+  res.setHeader(
+    "Access-Control-Allow-Headers",
+    "Content-Type, Authorization"
+  );
 
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(204); // quick preflight response
+  }
+  next();
+});
 
 /*const ORIGIN = process.env.ORIGIN || "http://localhost:5173";
 app.use(cors({ origin: ORIGIN, credentials: true }));*/
