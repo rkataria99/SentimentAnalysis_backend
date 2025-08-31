@@ -11,22 +11,38 @@ dotenv.config();
 const app = express();
 app.use(express.json());
 
-const normalize = (u) => (u ? u.replace(/\/$/, "") : u); // for no trailing slash mismatch
+// CORS
+const normalize = (u) => (u ? u.replace(/\/$/, "") : u);
 
+// Exact allowed origins (comma-separated in ORIGIN)
 const ALLOW = (process.env.ORIGIN || "http://localhost:5173")
   .split(",")
-  .map((s) => normalize(s.trim()));
+  .map((s) => normalize(s.trim()))
+  .filter(Boolean);
 
-app.use(
-  cors({
-    origin: (origin, cb) => {
-      if (!origin) return cb(null, true); // curl/postman or same-origin
-      const ok = ALLOW.includes(normalize(origin));
-      cb(ok ? null : new Error("Not allowed by CORS"));
-    },
-    credentials: true,
-  })
-);
+// Regex patterns (comma-separated in ORIGIN_PATTERNS)
+const ORIGIN_PATTERNS = (process.env.ORIGIN_PATTERNS || "")
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean)
+  .map((pat) => new RegExp(pat));
+
+const corsOptions = {
+  origin: (origin, cb) => {
+    if (!origin) return cb(null, true); 
+    const o = normalize(origin);
+    const ok =
+      ALLOW.includes(o) ||
+      ORIGIN_PATTERNS.some((rx) => rx.test(o));
+    cb(ok ? null : new Error("Not allowed by CORS"));
+  },
+  credentials: true,
+};
+
+app.use(cors(corsOptions));
+// Explicitly handle preflight for all routes - error handling
+app.options("*", cors(corsOptions));
+
 
 
 /*const ORIGIN = process.env.ORIGIN || "http://localhost:5173";
