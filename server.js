@@ -14,7 +14,7 @@ app.use(express.json());
 const ORIGIN = process.env.ORIGIN || "http://localhost:5173";
 app.use(cors({ origin: ORIGIN, credentials: true }));
 
-// ---------- Simple tokenizer ----------
+// Simple tokenizer
 function tokenize(text) {
   return (text || "")
     .toLowerCase()
@@ -23,78 +23,7 @@ function tokenize(text) {
     .filter(Boolean);
 }
 
-// ---------- Naive Bayes trainer (UNCHANGED) ----------
-class NaiveBayes {
-  constructor(labels) {
-    this.labels = labels;
-    this.priors = {};         // label -> prior count
-    this.wordCounts = {};     // label -> { word -> count }
-    this.totalWords = {};     // label -> total word count
-    this.vocab = new Set();
-    labels.forEach(l => {
-      this.priors[l] = 0;
-      this.wordCounts[l] = {};
-      this.totalWords[l] = 0;
-    });
-  }
-
-  addExample(text, label) {
-    if (!this.labels.includes(label)) return;
-    this.priors[label] += 1;
-    const tokens = tokenize(text);
-    tokens.forEach(tok => {
-      this.vocab.add(tok);
-      this.wordCounts[label][tok] = (this.wordCounts[label][tok] || 0) + 1;
-      this.totalWords[label] += 1;
-    });
-  }
-
-  predict(text) {
-    const tokens = tokenize(text);
-    const alpha = 1; // Laplace smoothing
-    const vocabSize = this.vocab.size || 1;
-    const totalDocs = Object.values(this.priors).reduce((a,b)=>a+b,0) || 1;
-
-    let scores = {};
-    this.labels.forEach(label => {
-      // log prior
-      let logProb = Math.log((this.priors[label] + alpha) / (totalDocs + this.labels.length * alpha));
-      const totalLabelWords = this.totalWords[label];
-
-      tokens.forEach(tok => {
-        const count = (this.wordCounts[label][tok] || 0);
-        const probTokGivenLabel = (count + alpha) / (totalLabelWords + alpha * vocabSize);
-        logProb += Math.log(probTokGivenLabel);
-      });
-
-      scores[label] = logProb;
-    });
-
-    // Normalize scores via softmax-like for probabilities
-    const maxLog = Math.max(...Object.values(scores));
-    const expScores = Object.fromEntries(Object.entries(scores).map(([k,v]) => [k, Math.exp(v - maxLog)]));
-    const sumExp = Object.values(expScores).reduce((a,b)=>a+b,0);
-    const probs = Object.fromEntries(Object.entries(expScores).map(([k,v]) => [k, v / sumExp]));
-
-    // predicted label
-    let best = Object.entries(probs).sort((a,b)=>b[1]-a[1])[0][0];
-
-    return { label: best, probabilities: probs, tokens };
-  }
-}
-
-const labels = ["positive","negative","neutral"];
-const nb = new NaiveBayes(labels);
-
-function loadTrainingData() {
-  const raw = fs.readFileSync("./data/train.json","utf-8");
-  const arr = JSON.parse(raw);
-  arr.forEach(ex => nb.addExample(ex.text, ex.label));
-  console.log(`🧠 Trained on ${arr.length} examples. Vocab size: ${nb.vocab.size}`);
-}
-loadTrainingData();
-
-// ---------- Lexicon approach (UNCHANGED) ----------
+// Lexicon approach (UNCHANGED)
 const POS_WORDS = new Set([
   "love","awesome","great","good","wonderful","happy","delightful","smile","best","fresh","friendly","helpful",
   "proud", "joy","fantastic","exciting","excellent","amazing","like","fun","cool","nice","wow","brilliant","super"
@@ -118,9 +47,8 @@ function lexiconScore(text) {
   return { label, score, details, tokens };
 }
 
-// ---------- NEW: Signals approach (kid-friendly; EASY) ----------
-/*  ✅ ADDED
-    Looks at obvious clues kids already know:
+// Signals approach
+/*  Looks at obvious clues kids already know:
     - emojis 😊 ☹️ 👍 👎
     - exclamation counts
     - booster words (very/really/so/super/extremely)
@@ -176,13 +104,6 @@ app.get("/api/health", (req,res)=>{
   res.json({ ok: true, time: new Date().toISOString() });
 });
 
-app.post("/api/predict", async (req,res)=>{   // NB route (kept for compatibility)
-  const { text } = req.body || {};
-  if (!text || !text.trim()) return res.status(400).json({ error: "text required"});
-  const out = nb.predict(text);
-  res.json(out);
-});
-
 app.post("/api/lexicon", (req,res)=>{
   const { text } = req.body || {};
   if (!text || !text.trim()) return res.status(400).json({ error: "text required"});
@@ -190,7 +111,6 @@ app.post("/api/lexicon", (req,res)=>{
   res.json(out);
 });
 
-// ✅ NEW: Signals route so frontend won't 404
 app.post("/api/signals", (req,res)=>{
   const { text } = req.body || {};
   if (!text || !text.trim()) return res.status(400).json({ error: "text required"});
@@ -219,7 +139,7 @@ app.get("/api/examples", async (req,res)=>{
 app.post("/api/score", async (req,res)=>{
   try {
     const { name, score, total } = req.body || {};
-    // Require a non-empty name
+    // for non-empty name
     if (!name || !name.trim()) {
       return res.status(400).json({ error: "name is required" });
     }
@@ -227,7 +147,7 @@ app.post("/api/score", async (req,res)=>{
       return res.status(400).json({ error: "score and total numbers required" });
     }
 
-    // Duplicate guard: if same name+score+total was saved in last 2 minutes, reject
+    // (Duplicate guard: )if same name+score+total was saved in last 2 minutes, reject
     const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000);
     const dup = await Score.findOne({
       name: name.trim(),
@@ -252,7 +172,7 @@ app.get("/api/scores", async (req,res)=>{
   res.json(top);
 });
 
-// ✅ Return JSON for unknown routes (prevents “unknown” in UI)
+//  prevents “unknown” in UI and return JSON
 app.use((req, res) => res.status(404).json({ error: "Not found", path: req.path }));
 app.use((err, req, res, next) => {
   console.error("Unhandled error:", err);
@@ -262,5 +182,5 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 5000;
 const MONGO_URI = process.env.MONGO_URI;
 connectDB(MONGO_URI).then(()=>{
-  app.listen(PORT, ()=> console.log("🚀 Server running on port", PORT));
+  app.listen(PORT, ()=> console.log(" Server running on port", PORT));
 });
